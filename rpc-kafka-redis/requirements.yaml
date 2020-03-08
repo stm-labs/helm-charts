@@ -1,0 +1,9 @@
+dependencies:
+- name: cp-helm-charts
+  version: 0.1.0
+  repository: file://./charts/cp-helm-charts
+  condition: cp-helm-charts.enabled
+- name: redis
+  version: 0.1.0
+  repository: file://./charts/redis
+  condition: redis.enabled
