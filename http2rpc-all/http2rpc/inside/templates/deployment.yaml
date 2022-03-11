@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "inside.fullname" . }}
+  labels:
+    {{- include "inside.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "inside.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "inside.selectorLabels" . | nindent 8 }}
+
+      {{- if .Values.stm.useJsonLogger }}
+        stm-labs-ru-logger: "json"
+      {{- end }}
+      annotations:
+        field.cattle.io/workloadMetrics: '[{"path":"/actuator/prometheus","port":80,"schema":"HTTP"}]'
+
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "inside.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          env:
+            # use 80 port for USN MS
+            - name: SERVER_PORT
+              value: "80"
+
+            # RPC DMZ
+            {{- if .Values.stm.rpcDmzRedisSentinelEnable }}
+            - name: USN_RPC_KAFKAREDIS_NAMESPACE_DMZ_REDIS_NODES
+              value: {{ .Values.stm.rpcDmzRedisNodes}}
+            {{- else }}
+            - name: USN_RPC_KAFKAREDIS_NAMESPACE_DMZ_REDIS_PORT
+              value: {{ .Values.stm.rpcDmzRedisPort}}
+            - name: USN_RPC_KAFKAREDIS_NAMESPACE_DMZ_REDIS_HOST
+              value: {{ .Values.stm.rpcDmzRedis}}
+            {{- end }}
+
+            - name: USN_RPC_KAFKAREDIS_NAMESPACE_DMZ_PRODUCER_KAFKA_BOOTSTRAP-SERVERS
+              value: {{ .Values.stm.rpcDmzKafka}}
+            - name: USN_RPC_KAFKAREDIS_NAMESPACE_DMZ_CONSUMER_KAFKA_BOOTSTRAP-SERVERS
+              value: {{ .Values.stm.rpcDmzKafka}}
+
+            - name: _JAVA_OPTIONS
+              value: {{ .Values.stm.javaOptions}}
+
+            - name: STM_PROXY_SYSTEM_CODE
+              value: {{ .Values.stm.systemCode}}
+
+            - name: STM_PROXY_PROXY_URL
+              value: {{ .Values.stm.proxyUrl}}
+
+            - name: USN_RPC_KAFKAREDIS_NAMESPACE_DMZ_CONSUMER_KAFKA_GROUP_ID
+              value: "RPCPROXY_{{ .Values.stm.systemCode}}"
+
+            {{- if .Values.stm.useJsonLogger }}
+            - name: STM_JSON_LOGGER
+              value: "TRUE"
+            {{- end }}
+
+          image: "{{ .Values.image.registry }}/{{ .Values.image.image }}:{{ .Values.image.build }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            failureThreshold: {{ .Values.health.failureThreshold}}
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
