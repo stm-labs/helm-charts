@@ -73,6 +73,11 @@ You should deploy pair of idmz/inside component for each connection.
 In http2rpc/inside you should set "stm.proxyUrl"
 In http2rpc/inside and http2rpc/idmz you should set "stm.systemCode" to globally uniq name of idmz/inside (that would be kafka topic, so you don't want to share it between different pair)
 
+By default redis sentinel (HA) is used. But you can downgrate to signle Redis instance - just set 
+- "--set stm.rpcDmzRedisSentinelEnable=false" and 
+- "--set stm.rpcDmzRedis=some-redis-host"
+- also you can set port via stm.rpcDmzRedisPort (6379 by default)
+
 ### Deploy Inside
 
 ```bash
